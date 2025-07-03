@@ -1,0 +1,9 @@
+# Node & Next.js
+node_modules
+.next
+.env
+.env.local
+
+# VSCode / OS
+.vscode
+.DS_Store
