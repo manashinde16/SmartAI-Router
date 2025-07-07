@@ -1,5 +1,10 @@
-const { neon } = require("@neondatabase/serverless");
+// server/utils/db.js
 require("dotenv").config();
+const { Pool } = require("pg");
 
-const sql = neon(process.env.DATABASE_URL);
-module.exports = sql;
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false },
+});
+
+module.exports = pool;
