@@ -1,44 +1,28 @@
-// middleware/tokenCap.js
-const redisClient = require("../services/redisClient");
+// server/middleware/tokenCap.js
+const redis = require("../services/redisClient");
 
-const TOKEN_LIMIT = 100_000; // daily per‑user limit
-const DAY_KEY_PREFIX = "tok";
-
-// Helper: tok:<userId>:<yyyyMMdd>
-function getTodayKey(userId) {
-  const date = new Date().toISOString().split("T")[0].replace(/-/g, "");
-  return `${DAY_KEY_PREFIX}:${userId}:${date}`;
-}
+const DAILY_LIMIT = 20_000; // tokens
 
 async function checkTokenCap(req, res, next) {
-  const userId = req.body.userId || "anonymous";
-  req.userId = userId; // pass along
+  const userId = req.headers["x-clerk-user-id"] || "anonymous";
+  req.userId = userId;
 
-  try {
-    const key = getTodayKey(userId);
-    const used = parseInt((await redisClient.get(key)) || "0", 10);
+  const dateKey = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+  const redisKey = `tok:${userId}:${dateKey}`;
 
-    if (used >= TOKEN_LIMIT) {
-      return res.status(429).json({ error: "Daily token limit reached." });
-    }
-
-    next();
-  } catch (err) {
-    console.error("Redis read error:", err);
-    return res.status(500).json({ error: "Redis error" });
+  const used = parseInt((await redis.get(redisKey)) || "0", 10);
+  if (used >= DAILY_LIMIT) {
+    return res.status(429).json({ error: "Daily token quota exceeded." });
   }
+  req.tokensUsedToday = used;
+  next();
 }
 
-async function addTokensForToday(userId, count) {
-  const key = getTodayKey(userId);
-
-  await redisClient.incrBy(key, count);
-
-  // ensure key expires after 24 h
-  const ttl = await redisClient.ttl(key);
-  if (ttl === -1) {
-    await redisClient.expire(key, 60 * 60 * 24);
-  }
+async function addTokensForToday(userId, tokens) {
+  const dateKey = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+  const redisKey = `tok:${userId}:${dateKey}`;
+  await redis.incrBy(redisKey, tokens);
+  await redis.expire(redisKey, 60 * 60 * 24 * 2); // 48 h TTL
 }
 
 module.exports = { checkTokenCap, addTokensForToday };

@@ -1,7 +1,7 @@
-// utils/logPrompt.js
-import sql from "./db.js";
+// server/utils/logPrompt.js
+const db = require("./db");
 
-export async function logPrompt({
+async function logPrompt({
   userId,
   modelUsed,
   prompt,
@@ -10,27 +10,14 @@ export async function logPrompt({
   cost,
 }) {
   try {
-    await sql`
-      INSERT INTO prompts (
-        user_id, model_used, prompt, response, token_usage, cost
-      ) VALUES (
-        ${userId}, ${modelUsed}, ${prompt}, ${response}, ${tokenUsage}, ${cost}
-      );
-    `;
-
-    await sql`
-      INSERT INTO model_usage (
-        model_name, usage_count, total_tokens, total_cost
-      ) VALUES (
-        ${modelUsed}, 1, ${tokenUsage}, ${cost}
-      )
-      ON CONFLICT (model_name)
-      DO UPDATE SET
-        usage_count = model_usage.usage_count + 1,
-        total_tokens = model_usage.total_tokens + EXCLUDED.total_tokens,
-        total_cost = model_usage.total_cost + EXCLUDED.total_cost;
-    `;
+    await db.query(
+      `INSERT INTO prompts (user_id, model_used, prompt, response, token_usage, cost)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [userId, modelUsed, prompt, response, tokenUsage, cost]
+    );
   } catch (err) {
-    console.error("Error logging prompt usage:", err);
+    console.error("Error logging prompt:", err);
   }
 }
+
+module.exports = { logPrompt };

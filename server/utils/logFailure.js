@@ -1,13 +1,16 @@
-// utils/logFailure.js
-import sql from "./db.js";
+// server/utils/logFailure.js
+const db = require("./db");
 
-export async function logFailure({ modelName, reason, prompt }) {
+async function logFailure({ modelName, reason, prompt }) {
   try {
-    await sql`
-      INSERT INTO failures (model_name, reason, prompt)
-      VALUES (${modelName}, ${reason}, ${prompt});
-    `;
+    await db.query(
+      `INSERT INTO failures (model_name, reason, prompt)
+       VALUES ($1, $2, $3)`,
+      [modelName, reason, prompt]
+    );
   } catch (err) {
     console.error("Error logging failure:", err);
   }
 }
+
+module.exports = { logFailure };
